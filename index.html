@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lettore Scontrino Digitale</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        padding: 20px;
+      }
+      #video,
+      #canvas {
+        border: 1px solid black;
+      }
+      #output {
+        margin-top: 20px;
+        white-space: pre-wrap;
+        text-align: left;
+        max-width: 500px;
+        margin: 20px auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Scansiona il QR Code dello Scontrino</h1>
+    <video id="video" width="300" height="200"></video>
+    <canvas id="canvas" style="display: none"></canvas>
+    <div id="output"></div>
+
+    <script>
+      const video = document.getElementById("video");
+      const canvas = document.getElementById("canvas");
+      const output = document.getElementById("output");
+      const ctx = canvas.getContext("2d");
+
+      // Accedi alla fotocamera
+      navigator.mediaDevices
+        .getUserMedia({ video: { facingMode: "environment" } })
+        .then((stream) => {
+          video.srcObject = stream;
+          video.play();
+          scanQR();
+        })
+        .catch((err) => {
+          output.textContent = "Errore nell'accesso alla fotocamera: " + err;
+        });
+
+      function scanQR() {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+        if (code) {
+          try {
+            const data = JSON.parse(code.data); // Parsa il JSON
+            // Visualizza i dati in modo leggibile
+            let outputText = `Scontrino Digitale\n`;
+            outputText += `ID Transazione: ${data.transaction_id}\n`;
+            outputText += `Negozio: ${data.store}\n`;
+            outputText += `Data: ${new Date(data.date).toLocaleString()}\n`;
+            outputText += `Metodo di pagamento: ${data.payment_method}\n`;
+            outputText += `\nProdotti:\n`;
+            data.items.forEach((item) => {
+              outputText += `- ${item.name}: ${
+                item.quantity
+              } x €${item.price.toFixed(2)} = €${(
+                item.quantity * item.price
+              ).toFixed(2)}\n`;
+            });
+            outputText += `\nTotale: €${data.total.toFixed(2)}`;
+            output.textContent = outputText;
+          } catch (e) {
+            output.textContent = `Errore nel parsing dei dati: ${code.data}`;
+          }
+        } else {
+          output.textContent = "Inquadrare un QR code...";
+        }
+        requestAnimationFrame(scanQR);
+      }
+    </script>
+  </body>
+</html>
