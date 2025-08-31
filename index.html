@@ -27,19 +27,30 @@
         max-width: 500px;
         margin: 20px auto;
       }
+      #resetButton {
+        margin-top: 10px;
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+      }
     </style>
   </head>
   <body>
     <h1>Scansiona il QR Code dello Scontrino</h1>
     <video id="video" playsinline></video>
     <canvas id="canvas" style="display: none"></canvas>
-    <div id="output"></div>
+    <div id="output">Inquadrare un QR code...</div>
+    <button id="resetButton" style="display: none">
+      Scansiona un nuovo QR code
+    </button>
 
     <script>
       const video = document.getElementById("video");
       const canvas = document.getElementById("canvas");
       const output = document.getElementById("output");
+      const resetButton = document.getElementById("resetButton");
       const ctx = canvas.getContext("2d");
+      let lastValidData = null; // Memorizza l'ultimo QR code valido
 
       // Accedi alla fotocamera
       navigator.mediaDevices
@@ -62,6 +73,7 @@
         })
         .catch((err) => {
           output.textContent = "Errore nell'accesso alla fotocamera: " + err;
+          resetButton.style.display = "none";
         });
 
       function scanQR() {
@@ -79,33 +91,42 @@
           if (code) {
             try {
               const data = JSON.parse(code.data); // Parsa il JSON
-              // Visualizza i dati in modo leggibile
-              let outputText = `Scontrino Digitale\n`;
-              outputText += `ID Transazione: ${data.transaction_id}\n`;
-              outputText += `Negozio: ${data.store}\n`;
-              outputText += `Data: ${new Date(data.date).toLocaleString()}\n`;
-              outputText += `Metodo di pagamento: ${data.payment_method}\n`;
-              outputText += `\nProdotti:\n`;
-              data.items.forEach((item) => {
-                outputText += `- ${item.name}: ${
-                  item.quantity
-                } x €${item.price.toFixed(2)} = €${(
-                  item.quantity * item.price
-                ).toFixed(2)}\n`;
-              });
-              outputText += `\nTotale: €${data.total.toFixed(2)}`;
-              output.textContent = outputText;
+              // Aggiorna l'output solo se il nuovo QR code è valido e diverso dall'ultimo
+              if (JSON.stringify(data) !== JSON.stringify(lastValidData)) {
+                lastValidData = data;
+                let outputText = `Scontrino Digitale\n`;
+                outputText += `ID Transazione: ${data.transaction_id}\n`;
+                outputText += `Negozio: ${data.store}\n`;
+                outputText += `Data: ${new Date(data.date).toLocaleString()}\n`;
+                outputText += `Metodo di pagamento: ${data.payment_method}\n`;
+                outputText += `\nProdotti:\n`;
+                data.items.forEach((item) => {
+                  outputText += `- ${item.name}: ${
+                    item.quantity
+                  } x €${item.price.toFixed(2)} = €${(
+                    item.quantity * item.price
+                  ).toFixed(2)}\n`;
+                });
+                outputText += `\nTotale: €${data.total.toFixed(2)}`;
+                output.textContent = outputText;
+                resetButton.style.display = "block"; // Mostra il pulsante di reset
+              }
             } catch (e) {
               output.textContent = `Errore nel parsing dei dati: ${code.data}`;
+              resetButton.style.display = "none";
             }
-          } else {
-            output.textContent = "Inquadrare un QR code...";
           }
+          // Non sovrascrivere l'output con "Inquadrare un QR code..." se esiste un dato valido
         }
         setTimeout(scanQR, 100); // Scansione ogni 100 ms
       }
+
+      // Pulsante per resettare e riprendere la scansione
+      resetButton.addEventListener("click", () => {
+        lastValidData = null;
+        output.textContent = "Inquadrare un QR code...";
+        resetButton.style.display = "none";
+      });
     </script>
   </body>
 </html>
-
-
