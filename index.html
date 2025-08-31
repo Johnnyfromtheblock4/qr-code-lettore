@@ -15,6 +15,11 @@
       #canvas {
         border: 1px solid black;
       }
+      #video {
+        width: 100%;
+        max-width: 500px;
+        height: auto;
+      }
       #output {
         margin-top: 20px;
         white-space: pre-wrap;
@@ -26,7 +31,7 @@
   </head>
   <body>
     <h1>Scansiona il QR Code dello Scontrino</h1>
-    <video id="video" width="300" height="200"></video>
+    <video id="video" playsinline></video>
     <canvas id="canvas" style="display: none"></canvas>
     <div id="output"></div>
 
@@ -38,49 +43,66 @@
 
       // Accedi alla fotocamera
       navigator.mediaDevices
-        .getUserMedia({ video: { facingMode: "environment" } })
+        .getUserMedia({
+          video: {
+            facingMode: "environment",
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+          },
+        })
         .then((stream) => {
           video.srcObject = stream;
           video.play();
-          scanQR();
+          // Aspetta che i metadati del video siano caricati
+          video.addEventListener("loadedmetadata", () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            scanQR();
+          });
         })
         .catch((err) => {
           output.textContent = "Errore nell'accesso alla fotocamera: " + err;
         });
 
       function scanQR() {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height);
-
-        if (code) {
-          try {
-            const data = JSON.parse(code.data); // Parsa il JSON
-            // Visualizza i dati in modo leggibile
-            let outputText = `Scontrino Digitale\n`;
-            outputText += `ID Transazione: ${data.transaction_id}\n`;
-            outputText += `Negozio: ${data.store}\n`;
-            outputText += `Data: ${new Date(data.date).toLocaleString()}\n`;
-            outputText += `Metodo di pagamento: ${data.payment_method}\n`;
-            outputText += `\nProdotti:\n`;
-            data.items.forEach((item) => {
-              outputText += `- ${item.name}: ${
-                item.quantity
-              } x €${item.price.toFixed(2)} = €${(
-                item.quantity * item.price
-              ).toFixed(2)}\n`;
-            });
-            outputText += `\nTotale: €${data.total.toFixed(2)}`;
-            output.textContent = outputText;
-          } catch (e) {
-            output.textContent = `Errore nel parsing dei dati: ${code.data}`;
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+          // Controlla che le dimensioni del canvas siano valide
+          if (canvas.width <= 0 || canvas.height <= 0) {
+            output.textContent = "Dimensioni del video non valide. Riprova.";
+            setTimeout(scanQR, 100);
+            return;
           }
-        } else {
-          output.textContent = "Inquadrare un QR code...";
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+          if (code) {
+            try {
+              const data = JSON.parse(code.data); // Parsa il JSON
+              // Visualizza i dati in modo leggibile
+              let outputText = `Scontrino Digitale\n`;
+              outputText += `ID Transazione: ${data.transaction_id}\n`;
+              outputText += `Negozio: ${data.store}\n`;
+              outputText += `Data: ${new Date(data.date).toLocaleString()}\n`;
+              outputText += `Metodo di pagamento: ${data.payment_method}\n`;
+              outputText += `\nProdotti:\n`;
+              data.items.forEach((item) => {
+                outputText += `- ${item.name}: ${
+                  item.quantity
+                } x €${item.price.toFixed(2)} = €${(
+                  item.quantity * item.price
+                ).toFixed(2)}\n`;
+              });
+              outputText += `\nTotale: €${data.total.toFixed(2)}`;
+              output.textContent = outputText;
+            } catch (e) {
+              output.textContent = `Errore nel parsing dei dati: ${code.data}`;
+            }
+          } else {
+            output.textContent = "Inquadrare un QR code...";
+          }
         }
-        requestAnimationFrame(scanQR);
+        setTimeout(scanQR, 100); // Scansione ogni 100 ms
       }
     </script>
   </body>
