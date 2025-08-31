@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Lettore Scontrino Digitale</title>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -12,7 +14,8 @@
         padding: 20px;
       }
       #video,
-      #canvas {
+      #canvas,
+      #exitQRCode {
         border: 1px solid black;
       }
       #video {
@@ -27,11 +30,17 @@
         max-width: 500px;
         margin: 20px auto;
       }
-      #resetButton {
+      #resetButton,
+      #downloadButton {
         margin-top: 10px;
         padding: 10px 20px;
         font-size: 16px;
         cursor: pointer;
+        margin-right: 10px;
+      }
+      #exitQRCode {
+        margin: 20px auto;
+        display: none;
       }
     </style>
   </head>
@@ -43,12 +52,17 @@
     <button id="resetButton" style="display: none">
       Scansiona un nuovo QR code
     </button>
+    <button id="downloadButton" style="display: none">Scarica PDF</button>
+    <div id="exitQRCode"></div>
 
     <script>
+      const { jsPDF } = window.jspdf; // Accedi a jsPDF dal CDN
       const video = document.getElementById("video");
       const canvas = document.getElementById("canvas");
       const output = document.getElementById("output");
       const resetButton = document.getElementById("resetButton");
+      const downloadButton = document.getElementById("downloadButton");
+      const exitQRCode = document.getElementById("exitQRCode");
       const ctx = canvas.getContext("2d");
       let lastValidData = null; // Memorizza l'ultimo QR code valido
 
@@ -64,7 +78,6 @@
         .then((stream) => {
           video.srcObject = stream;
           video.play();
-          // Aspetta che i metadati del video siano caricati
           video.addEventListener("loadedmetadata", () => {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
@@ -74,11 +87,12 @@
         .catch((err) => {
           output.textContent = "Errore nell'accesso alla fotocamera: " + err;
           resetButton.style.display = "none";
+          downloadButton.style.display = "none";
+          exitQRCode.style.display = "none";
         });
 
       function scanQR() {
         if (video.readyState === video.HAVE_ENOUGH_DATA) {
-          // Controlla che le dimensioni del canvas siano valide
           if (canvas.width <= 0 || canvas.height <= 0) {
             output.textContent = "Dimensioni del video non valide. Riprova.";
             setTimeout(scanQR, 100);
@@ -90,8 +104,7 @@
 
           if (code) {
             try {
-              const data = JSON.parse(code.data); // Parsa il JSON
-              // Aggiorna l'output solo se il nuovo QR code è valido e diverso dall'ultimo
+              const data = JSON.parse(code.data);
               if (JSON.stringify(data) !== JSON.stringify(lastValidData)) {
                 lastValidData = data;
                 let outputText = `Scontrino Digitale\n`;
@@ -109,23 +122,80 @@
                 });
                 outputText += `\nTotale: €${data.total.toFixed(2)}`;
                 output.textContent = outputText;
-                resetButton.style.display = "block"; // Mostra il pulsante di reset
+
+                // Mostra i pulsanti e genera il QR code di uscita
+                resetButton.style.display = "block";
+                downloadButton.style.display = "block";
+                exitQRCode.style.display = "block";
+                generateExitQRCode(data.transaction_id);
               }
             } catch (e) {
               output.textContent = `Errore nel parsing dei dati: ${code.data}`;
               resetButton.style.display = "none";
+              downloadButton.style.display = "none";
+              exitQRCode.style.display = "none";
             }
           }
-          // Non sovrascrivere l'output con "Inquadrare un QR code..." se esiste un dato valido
         }
-        setTimeout(scanQR, 100); // Scansione ogni 100 ms
+        setTimeout(scanQR, 100);
       }
+
+      // Funzione per generare il QR code di uscita
+      function generateExitQRCode(transactionId) {
+        exitQRCode.innerHTML = ""; // Pulisci il contenuto precedente
+        new QRCode(exitQRCode, {
+          text: transactionId, // Usa solo il transaction_id per il QR code di uscita
+          width: 150,
+          height: 150,
+          colorDark: "#000000",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.H,
+        });
+      }
+
+      // Funzione per scaricare il PDF
+      downloadButton.addEventListener("click", () => {
+        if (lastValidData) {
+          const doc = new jsPDF();
+          doc.setFontSize(12);
+          doc.text("Scontrino Digitale", 10, 10);
+          doc.text(`ID Transazione: ${lastValidData.transaction_id}`, 10, 20);
+          doc.text(`Negozio: ${lastValidData.store}`, 10, 30);
+          doc.text(
+            `Data: ${new Date(lastValidData.date).toLocaleString()}`,
+            10,
+            40
+          );
+          doc.text(
+            `Metodo di pagamento: ${lastValidData.payment_method}`,
+            10,
+            50
+          );
+          doc.text("Prodotti:", 10, 60);
+          let y = 70;
+          lastValidData.items.forEach((item) => {
+            doc.text(
+              `- ${item.name}: ${item.quantity} x €${item.price.toFixed(
+                2
+              )} = €${(item.quantity * item.price).toFixed(2)}`,
+              10,
+              y
+            );
+            y += 10;
+          });
+          doc.text(`Totale: €${lastValidData.total.toFixed(2)}`, 10, y + 10);
+          doc.save(`scontrino_${lastValidData.transaction_id}.pdf`);
+        }
+      });
 
       // Pulsante per resettare e riprendere la scansione
       resetButton.addEventListener("click", () => {
         lastValidData = null;
         output.textContent = "Inquadrare un QR code...";
         resetButton.style.display = "none";
+        downloadButton.style.display = "none";
+        exitQRCode.style.display = "none";
+        exitQRCode.innerHTML = ""; // Pulisci il QR code
       });
     </script>
   </body>
