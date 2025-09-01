@@ -16,3 +16,9 @@
 #downloadButton:hover {
   background-color: #218838;
 }
+
+
+/* Logo */
+.logo {
+  width: 150px;
+}
