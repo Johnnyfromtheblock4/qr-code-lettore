@@ -12,6 +12,7 @@
         font-family: Arial, sans-serif;
         text-align: center;
         padding: 20px;
+        background-color: #deebd4;
       }
       #video,
       #canvas,
@@ -25,10 +26,43 @@
       }
       #output {
         margin-top: 20px;
-        white-space: pre-wrap;
-        text-align: left;
         max-width: 500px;
         margin: 20px auto;
+        background-color: #fff;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        font-family: "Courier New", Courier, monospace; /* Font che ricorda gli scontrini */
+        text-align: left;
+        line-height: 1.5;
+      }
+      /* Stile per il titolo "Scontrino Digitale" */
+      #output::before {
+        content: "Scontrino Digitale";
+        display: block;
+        font-size: 1.5em;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 10px;
+        border-bottom: 2px solid #000;
+        padding-bottom: 5px;
+      }
+
+      /* Stile per le righe dei prodotti */
+      #output .item {
+        margin: 5px 0;
+        padding-left: 10px;
+        border-left: 3px solid #28a745;
+      }
+
+      /* Stile per il totale */
+      #output .total {
+        font-weight: bold;
+        font-size: 1.2em;
+        margin-top: 15px;
+        border-top: 1px dashed #000;
+        padding-top: 10px;
       }
       #resetButton,
       #downloadButton {
@@ -48,11 +82,13 @@
     <h1>Scansiona il QR Code dello Scontrino</h1>
     <video id="video" playsinline></video>
     <canvas id="canvas" style="display: none"></canvas>
-    <div id="output">Inquadrare un QR code...</div>
+    <div id="output">Inquadra il QR code dello scontrino...</div>
     <button id="resetButton" style="display: none">
       Scansiona un nuovo QR code
     </button>
-    <button id="downloadButton" style="display: none">Scarica PDF</button>
+    <button id="downloadButton" style="display: none">
+      Scarica lo Scontrino
+    </button>
     <div id="exitQRCode"></div>
 
     <script>
