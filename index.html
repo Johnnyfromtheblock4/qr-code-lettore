@@ -78,11 +78,15 @@
       #exitQRCode {
         margin: 20px auto;
         display: none;
+        text-align: center;
+      }
+      #exitQRCode canvas {
+        border: none !important;
       }
     </style>
   </head>
   <body>
-    <img src="assets/img/iper-logo-small.png" class="logo">
+    <img src="assets/img/iper-logo-small.png" class="logo" />
     <h1>Scansiona il QR Code dello Scontrino</h1>
     <video id="video" playsinline></video>
     <canvas id="canvas" style="display: none"></canvas>
@@ -147,21 +151,26 @@
               const data = JSON.parse(code.data);
               if (JSON.stringify(data) !== JSON.stringify(lastValidData)) {
                 lastValidData = data;
-                let outputText = `Scontrino Digitale\n`;
-                outputText += `ID Transazione: ${data.transaction_id}\n`;
-                outputText += `Negozio: ${data.store}\n`;
-                outputText += `Data: ${new Date(data.date).toLocaleString()}\n`;
-                outputText += `Metodo di pagamento: ${data.payment_method}\n`;
-                outputText += `\nProdotti:\n`;
+                let outputText = `<div>ID Transazione: ${data.transaction_id}</div>`;
+                outputText += `<div>Negozio: ${data.store}</div>`;
+                outputText += `<div>Data: ${new Date(
+                  data.date
+                ).toLocaleString()}</div>`;
+                outputText += `<div>Metodo di pagamento: ${data.payment_method}</div>`;
+                outputText += `<div style="margin-top: 10px;">Prodotti:</div>`;
+                outputText += `<ul style="padding-left: 20px; margin: 5px 0;">`; // Lista HTML
                 data.items.forEach((item) => {
-                  outputText += `- ${item.name}: ${
+                  outputText += `<li class="item">${item.name}: ${
                     item.quantity
                   } x €${item.price.toFixed(2)} = €${(
                     item.quantity * item.price
-                  ).toFixed(2)}\n`;
+                  ).toFixed(2)}</li>`;
                 });
-                outputText += `\nTotale: €${data.total.toFixed(2)}`;
-                output.textContent = outputText;
+                outputText += `</ul>`;
+                outputText += `<div class="total">Totale: €${data.total.toFixed(
+                  2
+                )}</div>`;
+                output.innerHTML = outputText;
 
                 // Mostra i pulsanti e genera il QR code di uscita
                 resetButton.style.display = "block";
@@ -193,26 +202,30 @@
         });
       }
 
-      // Funzione per scaricare il PDF
       downloadButton.addEventListener("click", () => {
         if (lastValidData) {
           const doc = new jsPDF();
+          // Aggiungi il logo
+          const logoUrl = "https://qr-lettore.netlify.app/iper-logo-small.png";
+          doc.addImage(logoUrl, "PNG", 10, 10, 50, 20); // Posizione x:10, y:10, larghezza:50, altezza:20
+
+          // Aggiungi il testo dello scontrino
           doc.setFontSize(12);
-          doc.text("Scontrino Digitale", 10, 10);
-          doc.text(`ID Transazione: ${lastValidData.transaction_id}`, 10, 20);
-          doc.text(`Negozio: ${lastValidData.store}`, 10, 30);
+          doc.text("Scontrino Digitale", 10, 40); // Spostato più in basso per non sovrapporsi al logo
+          doc.text(`ID Transazione: ${lastValidData.transaction_id}`, 10, 50);
+          doc.text(`Negozio: ${lastValidData.store}`, 10, 60);
           doc.text(
             `Data: ${new Date(lastValidData.date).toLocaleString()}`,
             10,
-            40
+            70
           );
           doc.text(
             `Metodo di pagamento: ${lastValidData.payment_method}`,
             10,
-            50
+            80
           );
-          doc.text("Prodotti:", 10, 60);
-          let y = 70;
+          doc.text("Prodotti:", 10, 90);
+          let y = 100;
           lastValidData.items.forEach((item) => {
             doc.text(
               `- ${item.name}: ${item.quantity} x €${item.price.toFixed(
